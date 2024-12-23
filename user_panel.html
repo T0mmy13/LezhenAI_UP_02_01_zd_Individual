@@ -1,0 +1,82 @@
+<!-- public/user_panel.html -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="Proj3.css">
+    <title>Пользовательская Панель</title>
+</head>
+<body>
+    <header>
+        <div>
+            <span>Добро пожаловать, <?php echo htmlspecialchars($user['Логин']); ?>!</span>
+            <a href="logout.php" style="float:right;">Выход</a>
+        </div>
+    </header>
+
+    <main>
+        <h3>Назначенные задания</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Номер</th>
+                    <th>Задание</th>
+                    <th>Срок</th>
+                    <th>Выполнено</th>
+                    <th>Дата выполнения</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($tasks as $task): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($task['Номер']); ?></td>
+                    <td><?php echo htmlspecialchars($task['Задание']); ?></td>
+                    <td><?php echo htmlspecialchars($task['Срок_выполнения']); ?></td>
+                    <td>
+                        <input type="checkbox"
+                        <?php echo $task['Выполнено'] == 'true' ? 'checked disabled' : ''; ?>
+                        onchange="markCompleted(this, '<?php echo $task['Номер']; ?>')">
+                    </td>
+                    <td><?php echo htmlspecialchars($task['Дата_выполнения']); ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </main>
+
+    <script>
+        function markCompleted(checkbox, taskId) {
+            if (checkbox.checked) {
+                const today = new Date().toISOString().split('T')[0];
+
+                // Найти строку таблицы по taskId
+                const row = checkbox.closest('tr');
+                row.children[4].textContent = today; // Установить сегодняшнюю дату
+
+                // Заблокировать чекбокс
+                checkbox.disabled = true;
+
+                // Отправить данные на сервер для обновления
+                fetch('complete_task.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({  Номер: taskId, Дата_выполнения: today })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        alert('Ошибка при обновлении задачи.');
+                        console.error(data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    alert('Ошибка при обновлении задачи.');
+                });
+            }
+        }
+    </script>
+</body>
+</html>

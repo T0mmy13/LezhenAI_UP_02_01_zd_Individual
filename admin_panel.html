@@ -1,0 +1,191 @@
+<!-- public/admin_panel.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="Proj3.css">
+    <title>Админ Панель</title>
+    <style>
+        .tab-content {
+            display: none;
+        }
+
+            .tab-content.active {
+                display: block;
+            }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <span>Добро пожаловать, <?php echo htmlspecialchars($user['Логин']); ?>!</span>
+            <a href="logout.php" style="float:right;">Выход</a>
+        </div>
+        <nav>
+            <ul>
+                <li><a href="#" onclick="showTab('auth')">Авторизация</a></li>
+                <li><a href="#" onclick="showTab('tasks')">Задачи</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div id="auth" class="tab-content">
+        <h3>Управление таблицей Авторизация</h3>
+        <table id="auth-table">
+            <thead>
+                <tr>
+                    <th>Номер</th>
+                    <th>Логин</th>
+                    <th>Пароль</th>
+                    <th>Админ</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($auth_data as $auth): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($auth['Номер']); ?></td>
+                    <td contenteditable="true" data-field="Логин"><?php echo htmlspecialchars($auth['Логин']); ?></td>
+                    <td contenteditable="true" data-field="Пароль"><?php echo htmlspecialchars($auth['Пароль']); ?></td>
+                    <td contenteditable="true" data-field="Админ"><?php echo htmlspecialchars($auth['Админ']); ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <button onclick="saveChanges('auth')">Сохранить изменения</button>
+        <button onclick="addRow('auth')">Добавить</button>
+    </div>
+
+    <div id="tasks" class="tab-content">
+        <h3>Управление таблицей Задачи</h3>
+        <table id="tasks-table">
+            <thead>
+                <tr>
+                    <th>Номер</th>
+                    <th>Задание</th>
+                    <th>Исполняющий</th>
+                    <th>Срок выполнения</th>
+                    <th>Выполнено</th>
+                    <th>Дата выполнения</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($tasks_data as $task): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($task['Номер']); ?></td>
+                    <td contenteditable="true" data-field="Задание"><?php echo htmlspecialchars($task['Задание']); ?></td>
+                    <td contenteditable="true" data-field="Исполняющий"><?php echo htmlspecialchars($task['Исполняющий']); ?></td>
+                    <td contenteditable="true" data-field="Срок_выполнения"><?php echo htmlspecialchars($task['Срок_выполнения']); ?></td>
+                    <td contenteditable="true" data-field="Выполнено"><?php echo htmlspecialchars($task['Выполнено']); ?></td>
+                    <td contenteditable="true" data-field="Дата_выполнения"><?php echo htmlspecialchars($task['Дата_выполнения']); ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <button onclick="saveChanges('tasks')">Сохранить изменения</button>
+        <button onclick="addRow('tasks')">Добавить</button>
+    </div>
+
+    <div id="error-message" style="color: red;"></div>
+
+    <script>
+        function showTab(tabId) {
+            var tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(function (tab) {
+                tab.classList.remove('active');
+            });
+
+            var selectedTab = document.getElementById(tabId);
+            if (selectedTab) {
+                selectedTab.classList.add('active');
+            }
+        }
+
+        function saveChanges(tabId) {
+            var errorMessage = document.getElementById('error-message');
+            errorMessage.textContent = ''; // Clear previous errors
+
+            var table = document.getElementById(tabId + '-table');
+            var rows = table.querySelectorAll('tbody tr');
+
+            var updates = [];
+            var newEntries = []; // Initialize new entries array
+            rows.forEach(function (row) {
+                var cells = row.querySelectorAll('td');
+                var updateData = {};
+                cells.forEach(function (cell) {
+                    var field = cell.getAttribute('data-field');
+                    if (field) {
+                        updateData[field] = cell.textContent;
+                    }
+                });
+                updateData['Номер'] = row.firstElementChild.textContent; // Assuming first cell is 'Номер'
+
+                if (row.hasAttribute('data-new')) {
+                    newEntries.push(updateData); // If the row is new, add to newEntries
+                } else {
+                    updates.push(updateData);
+                }
+            });
+
+            // Validate date format (simple check, can be improved)
+            if (tabId === 'tasks') {
+                for (var i = 0; i < updates.length; i++) {
+                    var date = updates[i]['Срок_выполнения'];
+                    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                        errorMessage.textContent = 'Ошибка: Некорректный формат даты в строке ' + (i + 1);
+                        return;
+                    }
+                }
+            }
+
+            // AJAX call to save updates
+            fetch('update_data.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ tab: tabId, updates: updates, newEntries: newEntries })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+                    errorMessage.textContent = 'Изменения сохранены успешно!';
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    errorMessage.textContent = 'Ошибка при сохранении изменений.';
+                });
+        }
+
+        function addRow(tabId) {
+            var table = document.getElementById(tabId + '-table').querySelector('tbody');
+            var newRow = document.createElement('tr');
+            newRow.setAttribute('data-new', 'true'); // Mark row as new
+
+            var newNumber = table.children.length + 1;
+            if (tabId === 'auth') {
+                newRow.innerHTML = `
+                        <td>${newNumber}</td>
+                        <td contenteditable="true" data-field="Логин"></td>
+                        <td contenteditable="true" data-field="Пароль"></td>
+                        <td contenteditable="true" data-field="Админ"></td>
+                    `;
+            } else if (tabId === 'tasks') {
+                newRow.innerHTML = `
+                        <td>${newNumber}</td>
+                        <td contenteditable="true" data-field="Задание"></td>
+                        <td contenteditable="true" data-field="Исполняющий"></td>
+                        <td contenteditable="true" data-field="Срок_выполнения"></td>
+                        <td contenteditable="true" data-field="Выполнено"></td>
+                        <td data-field="Дата_выполнения">NULL</td>
+                    `;
+            }
+
+            table.appendChild(newRow);
+        }
+
+        showTab('auth');
+    </script>
+</body>
+</html>
